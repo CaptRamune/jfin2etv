@@ -1,0 +1,45 @@
+# Dockge stack 2 — ErsatzTV-Next + jfin2etv (DESIGN.md §3.2).
+# Set JELLYFIN_API_KEY in the Dockge stack's .env before deploying.
+# Prereq on host: `docker network create media_proxy`
+services:
+  ersatztv:
+    image: ghcr.io/ersatztv/next:latest
+    restart: unless-stopped
+    volumes:
+      - ./ersatztv/config:/config
+      - /srv/media:/media:ro
+    command: ["/config/lineup.json"]
+    networks: [media_proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=media_proxy
+      - traefik.http.routers.etv.rule=Host(`tv.example.com`)
+      - traefik.http.routers.etv.tls.certresolver=le
+      - traefik.http.services.etv.loadbalancer.server.port=8409
+
+  jfin2etv:
+    image: ghcr.io/captramune/jfin2etv:latest
+    restart: unless-stopped
+    environment:
+      JELLYFIN_URL: http://jellyfin:8096
+      JELLYFIN_API_KEY: ${JELLYFIN_API_KEY}
+      TZ: America/New_York
+    volumes:
+      - ./jfin2etv/config:/config
+      - ./jfin2etv/scripts:/scripts
+      - ./jfin2etv/state:/state
+      - ./jfin2etv/epg:/epg
+      - ./ersatztv/config:/ersatztv-config
+      - /srv/media:/media:ro
+    depends_on: [ersatztv]
+    networks: [media_proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=media_proxy
+      - traefik.http.routers.epg.rule=Host(`tv.example.com`) && PathPrefix(`/epg`)
+      - traefik.http.routers.epg.tls.certresolver=le
+      - traefik.http.services.epg.loadbalancer.server.port=8080
+
+networks:
+  media_proxy:
+    external: true

@@ -1,0 +1,45 @@
+# jfin2etv host configuration (DESIGN.md §12.1).
+# Every setting has a sensible default. This file shows the full schema
+# with defaults uncommented. Delete anything you don't want to override.
+
+jellyfin:
+  url: http://jellyfin:8096
+  # Name of the env var to read the API key from. The API key itself
+  # lives in the environment, never in YAML.
+  api_key_env: JELLYFIN_API_KEY
+  request_timeout_s: 30
+  # Optional: rewrite Jellyfin's on-disk paths before emitting them to
+  # ErsatzTV-Next. Useful when the two services mount media at different
+  # points; usually unnecessary if both use /media.
+  # path_remap:
+  #   - from: /srv/jellyfin/media
+  #     to:   /media
+
+ersatztv:
+  config_dir: /ersatztv-config
+  server:
+    bind_address: 0.0.0.0
+    port: 8409
+  output_folder: /tmp/hls
+
+scheduler:
+  run_time: "04:00"                   # HH:MM daily in `timezone` below
+  timezone: America/New_York           # IANA tz; overrides TZ env if set
+  window_hours_ahead: 72               # plan this many hours of future playout
+  window_hours_behind: 48              # gap-fill missing days up to this far back
+  max_default_block_gap_hours: 1
+  channels_in_parallel: 2
+
+logging:
+  level: info                          # debug | info | warning | error
+  format: json                         # json | text
+
+epg:
+  merged_output: /epg/epg.xml
+  per_channel_output_dir: /epg/per-channel
+  # Optional base URL for channel logos referenced in XMLTV.
+  # icon_base_url: http://tv.example.com/epg/icons
+  include_icons: true
+
+health:
+  listen: 0.0.0.0:8080

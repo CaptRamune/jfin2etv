@@ -1,0 +1,27 @@
+# E2E fixture — a self-contained Jellyfin + ErsatzTV-Next pair running
+# against a small media library in ./fixture/media. Used by tests/e2e/test_e2e.py.
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    ports:
+      - "18096:8096"
+    volumes:
+      - ./fixture/jellyfin_config:/config
+      - ./fixture/jellyfin_cache:/cache
+      - ./fixture/media:/media:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8096/System/Info/Public || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  ersatztv:
+    image: ghcr.io/ersatztv/next:latest
+    depends_on: [jellyfin]
+    ports:
+      - "18409:8409"
+    volumes:
+      - ./fixture/ersatztv_config:/config
+      - ./fixture/media:/media:ro
+    command: ["/config/lineup.json"]
