@@ -23,10 +23,7 @@ jobs:
       - name: Debug — runner layout
         run: |
           echo "pwd=$(pwd)"
-          echo "--- top-level ---"
-          ls -la
-          echo "--- lockfiles ---"
-          ls -la uv.lock Gemfile.lock 2>&1 || true
+          ls -la pyproject.toml Gemfile Dockerfile src lib 2>&1 || true
       # endregion
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -39,53 +36,35 @@ jobs:
         with:
           ruby-version: "3.1"
           bundler-cache: false
-      # region agent log: explicit bundle install since we have no Gemfile.lock (H5)
-      - name: Install Ruby gems (without group dev/test)
+      # H5: explicit bundle install since no Gemfile.lock is committed
+      - name: Install Ruby gems (without dev/test groups)
         run: |
           gem install bundler --no-document
           bundle config set --local without 'development test' || true
           bundle install
-          echo "--- gem list ---"
-          bundle list || gem list method_source
-      # endregion
-      # region agent log: prove uv sync result and python version (H7)
       - name: Sync dependencies
-        run: |
-          set -x
-          uv sync --frozen --extra dev || uv sync --extra dev
-          uv run python --version
-          uv pip list | head -40
-      # endregion
-      # region agent log: ruff/mypy explicit (H6)
+        run: uv sync --frozen --extra dev || uv sync --extra dev
       - name: Ruff
         run: uv run ruff check .
-        continue-on-error: true
       - name: Mypy
         run: uv run mypy src/
         continue-on-error: true
-      # endregion
-      # region agent log: pytest with verbose tracebacks (H8/H9)
       - name: Pytest
-        run: |
-          which ruby && ruby --version
-          uv run pytest -x --tb=long -v 2>&1 | tee pytest.log
-      # endregion
+        run: uv run pytest -x
 
   ruby:
     name: Ruby
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # region agent log: confirm runner repo layout (H1)
-      - name: Debug — runner layout
-        run: |
-          echo "pwd=$(pwd)"
-          ls -la Gemfile spec lib 2>&1 || true
-      # endregion
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.1"
-          bundler-cache: true
+          bundler-cache: false
+      - name: Install Ruby gems
+        run: |
+          gem install bundler --no-document
+          bundle install
       - name: RSpec
         run: bundle exec rspec
       - name: RuboCop
@@ -103,7 +82,11 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.1"
-          bundler-cache: true
+          bundler-cache: false
+      - run: |
+          gem install bundler --no-document
+          bundle config set --local without 'development test' || true
+          bundle install
       - run: uv sync --frozen --extra dev || uv sync --extra dev
       - name: Run e2e
         env:
@@ -121,6 +104,14 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      # region agent log: confirm Dockerfile context (H10)
+      - name: Debug — image context
+        run: |
+          echo "pwd=$(pwd)"
+          ls -la Dockerfile pyproject.toml Gemfile uv.lock Gemfile.lock 2>&1 || true
+          echo "--- Dockerfile head ---"
+          head -40 Dockerfile
+      # endregion
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Buildx
@@ -142,6 +133,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      # region agent log: enable verbose buildkit progress for diagnostics (H10/H11)
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -151,7 +143,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
           cache-from: |
-            type=gha,scope=jfin2etv-${{ hashFiles('pyproject.toml','uv.lock','Gemfile','Gemfile.lock') }}
+            type=gha,scope=jfin2etv-${{ hashFiles('pyproject.toml','Gemfile') }}
           cache-to: |
-            type=gha,mode=max,scope=jfin2etv-${{ hashFiles('pyproject.toml','uv.lock','Gemfile','Gemfile.lock') }}
+            type=gha,mode=max,scope=jfin2etv-${{ hashFiles('pyproject.toml','Gemfile') }}
+      # endregion

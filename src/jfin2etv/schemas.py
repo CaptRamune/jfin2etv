@@ -7,7 +7,6 @@ bumping it is a code change.
 
 from __future__ import annotations
 
-from importlib.resources import files
 from pathlib import Path
 
 ERSATZTV_PLAYOUT_SCHEMA_URI = "https://ersatztv.org/playout/version/0.0.1"
@@ -35,6 +34,6 @@ __all__ = [
     "ERSATZTV_PLAYOUT_SCHEMA_URI",
     "XMLTV_GENERATOR_NAME",
     "XMLTV_SOURCE_NAME",
-    "vendored_schema_dir",
     "load_vendored_schema",
+    "vendored_schema_dir",
 ]

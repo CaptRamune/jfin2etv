@@ -28,8 +28,9 @@ def test_playout_validates_against_schema(docker_stack, tmp_path):
     if not api_key:
         pytest.skip("set JELLYFIN_API_KEY to run e2e tests")
 
-    from jfin2etv.cli import main as cli_main
     from click.testing import CliRunner
+
+    from jfin2etv.cli import main as cli_main
 
     scripts = tmp_path / "scripts" / "01"
     scripts.mkdir(parents=True)

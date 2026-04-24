@@ -33,24 +33,24 @@ class QueryParseError(ValueError):
 @dataclass(frozen=True, slots=True)
 class Atom:
     field: str
-    value: "Value"
+    value: Value
 
 
 @dataclass(frozen=True, slots=True)
 class And:
-    left: "Expr"
-    right: "Expr"
+    left: Expr
+    right: Expr
 
 
 @dataclass(frozen=True, slots=True)
 class Or:
-    left: "Expr"
-    right: "Expr"
+    left: Expr
+    right: Expr
 
 
 @dataclass(frozen=True, slots=True)
 class Not:
-    expr: "Expr"
+    expr: Expr
 
 
 Expr = And | Or | Not | Atom

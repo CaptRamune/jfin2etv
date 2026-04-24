@@ -8,7 +8,6 @@ import sys
 from datetime import UTC, datetime
 from typing import Any
 
-
 LEVELS = {
     "debug": stdlib_logging.DEBUG,
     "info": stdlib_logging.INFO,

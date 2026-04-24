@@ -24,15 +24,15 @@ class Duration:
     nanos: int
 
     @classmethod
-    def from_seconds(cls, seconds: float | int) -> "Duration":
-        return cls(int(round(float(seconds) * NANOS_PER_SECOND)))
+    def from_seconds(cls, seconds: float | int) -> Duration:
+        return cls(round(float(seconds) * NANOS_PER_SECOND))
 
     @classmethod
-    def from_ms(cls, ms: float | int) -> "Duration":
-        return cls(int(round(float(ms) * NANOS_PER_MS)))
+    def from_ms(cls, ms: float | int) -> Duration:
+        return cls(round(float(ms) * NANOS_PER_MS))
 
     @classmethod
-    def from_jellyfin_ticks(cls, ticks: int) -> "Duration":
+    def from_jellyfin_ticks(cls, ticks: int) -> Duration:
         return cls(int(ticks) * 100)
 
     @property
@@ -43,16 +43,16 @@ class Duration:
     def total_ms(self) -> int:
         return self.nanos // NANOS_PER_MS
 
-    def __add__(self, other: "Duration") -> "Duration":
+    def __add__(self, other: Duration) -> Duration:
         return Duration(self.nanos + other.nanos)
 
-    def __sub__(self, other: "Duration") -> "Duration":
+    def __sub__(self, other: Duration) -> Duration:
         return Duration(self.nanos - other.nanos)
 
-    def __lt__(self, other: "Duration") -> bool:
+    def __lt__(self, other: Duration) -> bool:
         return self.nanos < other.nanos
 
-    def __le__(self, other: "Duration") -> bool:
+    def __le__(self, other: Duration) -> bool:
         return self.nanos <= other.nanos
 
 
@@ -110,10 +110,10 @@ class NanoInstant:
         self.extra_nanos = int(extra_nanos)
 
     @classmethod
-    def from_datetime(cls, dt: datetime) -> "NanoInstant":
+    def from_datetime(cls, dt: datetime) -> NanoInstant:
         return cls(dt, 0)
 
-    def plus_nanos(self, nanos: int) -> "NanoInstant":
+    def plus_nanos(self, nanos: int) -> NanoInstant:
         total_nanos = self.dt.microsecond * 1000 + self.extra_nanos + int(nanos)
         micros, extra = divmod(total_nanos, 1000)
         if extra < 0:
@@ -122,18 +122,18 @@ class NanoInstant:
         base = self.dt.replace(microsecond=0) + timedelta(microseconds=micros)
         return NanoInstant(base, extra)
 
-    def diff_nanos(self, other: "NanoInstant") -> int:
+    def diff_nanos(self, other: NanoInstant) -> int:
         dt_diff = self.dt - other.dt
         micro_part = int(dt_diff / timedelta(microseconds=1))
         return micro_part * 1000 + (self.extra_nanos - other.extra_nanos)
 
-    def astimezone(self, tz: tzinfo) -> "NanoInstant":
+    def astimezone(self, tz: tzinfo) -> NanoInstant:
         return NanoInstant(self.dt.astimezone(tz), self.extra_nanos)
 
-    def __lt__(self, other: "NanoInstant") -> bool:
+    def __lt__(self, other: NanoInstant) -> bool:
         return (self.dt, self.extra_nanos) < (other.dt, other.extra_nanos)
 
-    def __le__(self, other: "NanoInstant") -> bool:
+    def __le__(self, other: NanoInstant) -> bool:
         return (self.dt, self.extra_nanos) <= (other.dt, other.extra_nanos)
 
     def __eq__(self, other: object) -> bool:
@@ -212,10 +212,10 @@ def at_seconds_to_datetime(day: date, seconds_since_midnight: int, tz: tzinfo) -
 
 
 __all__ = [
-    "Duration",
     "JELLYFIN_TICKS_PER_SECOND",
     "NANOS_PER_MS",
     "NANOS_PER_SECOND",
+    "Duration",
     "NanoInstant",
     "add_nanos",
     "at_seconds_to_datetime",

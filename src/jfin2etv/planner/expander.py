@@ -23,10 +23,9 @@ to ErsatzTV-Next JSON shapes.
 
 from __future__ import annotations
 
-import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import Callable
 
 from ..logging import get_logger
 from ..state import (
@@ -37,12 +36,10 @@ from ..state import (
     pick_weighted_random,
 )
 from ..time_utils import (
-    JELLYFIN_TICKS_PER_SECOND,
     NANOS_PER_SECOND,
     add_nanos,
     at_seconds_to_datetime,
     diff_nanos,
-    floor_to_midnight,
 )
 from .alignment import target_end
 from .fillers import (
@@ -54,7 +51,6 @@ from .fillers import (
 from .midnight_split import split_at_midnight
 from .model import (
     Collection,
-    Filler,
     Layout,
     LayoutStep,
     PlanAST,
@@ -146,7 +142,7 @@ class PoolPicker:
         self,
         items: list[dict],
         collection: Collection,
-    ) -> tuple[dict, "PoolPicker"]:
+    ) -> tuple[dict, PoolPicker]:
         if not items:
             raise ExpansionError("empty pool")
         mode = collection.mode
@@ -233,7 +229,7 @@ def _split_main_for_mid_rolls(
 
     chunks: list[PlayableItem] = []
     prev_ns = 0
-    for bp in break_points_ns + [main.duration_nanos]:
+    for bp in [*break_points_ns, main.duration_nanos]:
         chunk_duration = bp - prev_ns
         if chunk_duration <= 0:
             continue
@@ -373,10 +369,7 @@ def expand_day(
                     plan, cursor, next_anchor, pools, pickers, tz,
                 )
                 exp.items.extend(filled)
-                if filled:
-                    cursor = filled[-1].finish
-                else:
-                    cursor = next_anchor
+                cursor = filled[-1].finish if filled else next_anchor
             else:
                 cursor = next_anchor
             continue
@@ -506,7 +499,7 @@ def _expand_block(
                 remaining_ns = diff_nanos(next_anchor, cursor) - sum(c.duration_nanos for c in chunks)
                 budgets = auto_break_budgets(max(0, remaining_ns), n_breaks, mid_roll.per_break_target or 120)
             else:
-                per = int(mid_roll.count or 1)
+                int(mid_roll.count or 1)
                 # A fixed count per break of ~per_break_target seconds; cap by remaining budget.
                 remaining_ns = diff_nanos(next_anchor, cursor) - sum(c.duration_nanos for c in chunks)
                 per_break = max(0, remaining_ns // max(1, n_breaks))

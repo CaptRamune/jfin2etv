@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from jfin2etv.planner import PlanAST, expand_day
 from jfin2etv.planner.alignment import target_end
@@ -13,7 +13,7 @@ from jfin2etv.planner.fillers import (
     fill_budget_draining,
     fill_budget_looped,
 )
-from jfin2etv.time_utils import NANOS_PER_SECOND, diff_nanos, load_tz
+from jfin2etv.time_utils import NANOS_PER_SECOND, load_tz
 
 NY = load_tz("America/New_York")
 
@@ -22,7 +22,7 @@ NY = load_tz("America/New_York")
 
 
 def test_target_end_rounds_up_to_align():
-    start = datetime(2026, 4, 24, 20, 0, tzinfo=NY)
+    datetime(2026, 4, 24, 20, 0, tzinfo=NY)
     natural = datetime(2026, 4, 24, 20, 35, tzinfo=NY)
     end = target_end(natural, None, 1800, NY)
     assert end.hour == 21 and end.minute == 0
@@ -126,7 +126,7 @@ def test_expand_day_produces_contiguous_timeline():
     exp = expand_day(plan, d, pools, NY)
     assert exp.items, "expected non-empty expansion"
     # Contiguity: each item's start == previous item's finish.
-    for prev, cur in zip(exp.items, exp.items[1:]):
+    for prev, cur in zip(exp.items, exp.items[1:], strict=False):
         assert cur.start == prev.finish, (prev.finish, cur.start)
     # Covers 24h
     first = exp.items[0].start

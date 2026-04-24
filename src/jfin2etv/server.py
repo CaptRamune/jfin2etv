@@ -25,7 +25,7 @@ def _last_run_at(state_dir: str) -> datetime | None:
                     ts = datetime.fromisoformat(str(last["finished_at"]))
                     if latest is None or ts > latest:
                         latest = ts
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
     return latest
 

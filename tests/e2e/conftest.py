@@ -20,7 +20,7 @@ def _docker_available() -> bool:
         return False
     try:
         subprocess.run(["docker", "info"], check=True, capture_output=True, timeout=5)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return False
     return True
 
@@ -43,7 +43,7 @@ def docker_stack():
             r = httpx.get("http://127.0.0.1:18096/System/Info/Public", timeout=2)
             if r.status_code == 200:
                 break
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         time.sleep(2)
     else:

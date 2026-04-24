@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import signal
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -22,12 +23,12 @@ async def _watch_scripts(scripts_dir: str) -> None:
     """Log but do not trigger runs on script edits (§12.4)."""
     try:
         async for changes in awatch(scripts_dir):
-            for change, path in changes:
+            for _change, path in changes:
                 logger.info(
                     "script changed (not triggering run)",
                     extra={"event": "watcher.change", "file": path},
                 )
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.warning("script watcher stopped", extra={"event": "watcher.stopped", "msg": str(e)})
 
 
@@ -40,7 +41,7 @@ async def run_daemon(config: Config) -> None:
     async def _job():
         try:
             await orch.run_once()
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error("scheduled run failed", extra={"event": "run.error", "msg": str(e)})
 
     scheduler.add_job(_job, CronTrigger(hour=hh, minute=mm, timezone=tz))
@@ -62,10 +63,8 @@ async def run_daemon(config: Config) -> None:
         loop = asyncio.get_event_loop()
         if hasattr(loop, "add_signal_handler"):
             for sig in (signal.SIGINT, signal.SIGTERM):
-                try:
+                with contextlib.suppress(NotImplementedError):
                     loop.add_signal_handler(sig, _stop)
-                except NotImplementedError:
-                    pass
     except NotImplementedError:
         pass
 

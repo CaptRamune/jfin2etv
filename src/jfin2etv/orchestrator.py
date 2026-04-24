@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -30,7 +29,6 @@ from .logging import get_logger, log_event
 from .output import (
     merge_xmltv_files,
     render_channel_xmltv,
-    render_playout,
     write_channel_config,
     write_lineup_config,
     write_playout,
@@ -114,7 +112,6 @@ class Orchestrator:
 
         tz = load_tz(self.config.effective_timezone())
         today = (from_date or date.today())
-        window_start = today
         window_days = [today + timedelta(days=i) for i in range(3)]  # 72h
 
         channels = discover_channels(self.config.scripts_dir)
@@ -192,7 +189,7 @@ class Orchestrator:
         try:
             ast_dict = invoke_plan(channel_number, scripts)
             plan = PlanAST.model_validate(ast_dict)
-        except Exception as e:  # noqa: BLE001 — orchestrator must record & continue
+        except Exception as e:
             cr.errors.append(f"plan: {e}")
             log_event(logger, "channel.plan_error", "plan failed", channel=channel_number)
             return cr
@@ -202,7 +199,7 @@ class Orchestrator:
         # Resolve Jellyfin pools once per channel.
         try:
             pools = await self._resolve_pools(plan)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             cr.errors.append(f"resolve: {e}")
             log_event(logger, "channel.resolve_error", "resolve failed", channel=channel_number)
             return cr
@@ -265,7 +262,7 @@ class Orchestrator:
                 cr.xmltv_path = xmltv_path
 
                 state.finish_run(run_id, outcome="ok", items_written=cr.items_written)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 cr.errors.append(f"expand/write: {e}")
                 state.finish_run(run_id, outcome="error", items_written=cr.items_written, notes=str(e))
                 log_event(logger, "channel.error", "channel failed", channel=channel_number)

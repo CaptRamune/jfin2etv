@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 import click
@@ -16,7 +16,6 @@ from .jellyfin.client import JellyfinClient
 from .jellyfin.query import parse_query
 from .jellyfin.resolver import QueryResolver
 from .logging import configure as configure_logging
-from .logging import get_logger
 from .orchestrator import Orchestrator, discover_channels
 from .ruby_bridge import RubyDslError, invoke_plan
 
@@ -104,7 +103,7 @@ def validate(ctx: click.Context, only_channel: str | None) -> None:
         except RubyDslError as e:
             failures += 1
             click.echo(f"fail: {channel_number}: {e}", err=True)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             failures += 1
             click.echo(f"fail: {channel_number}: {type(e).__name__}: {e}", err=True)
     sys.exit(1 if failures else 0)
@@ -133,7 +132,7 @@ def gc(ctx: click.Context) -> None:
     """Delete playout files older than the configured retention window."""
     cfg = ctx.obj["config"]
     orch = Orchestrator(cfg)
-    orch._gc(None)  # noqa: SLF001 — intentional CLI escape hatch
+    orch._gc(None)
     click.echo("ok")
 
 

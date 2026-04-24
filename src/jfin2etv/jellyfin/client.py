@@ -36,7 +36,7 @@ class JellyfinClient:
         self._ua = user_agent
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "JellyfinClient":
+    async def __aenter__(self) -> JellyfinClient:
         self._client = httpx.AsyncClient(
             base_url=self._base,
             timeout=self._timeout,

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
-from typing import Callable
 
 from ..ruby_bridge import invoke_variant_selector
 from .model import Variant, VariantSelector

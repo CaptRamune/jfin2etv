@@ -6,6 +6,7 @@ Filename: ``{startISO}_{finishISO}.json`` with compact (no-separator) ISO 8601.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import tempfile
@@ -71,10 +72,8 @@ def write_playout(items: list[ScheduledItem], out_dir: str | Path) -> Path:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=2)
             f.flush()
-            try:
+            with contextlib.suppress(OSError):
                 os.fsync(f.fileno())
-            except OSError:
-                pass
         os.replace(tmp_path, path)
     except Exception:
         with contextlib.suppress(FileNotFoundError):
@@ -82,7 +81,5 @@ def write_playout(items: list[ScheduledItem], out_dir: str | Path) -> Path:
         raise
     return path
 
-
-import contextlib  # placed at bottom to keep the `Exception` cleanup tight
 
 __all__ = ["render_playout", "write_playout"]

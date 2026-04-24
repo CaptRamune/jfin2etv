@@ -9,17 +9,29 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock* README.md ./
+# Python deps. uv.lock is optional (the * glob handles its absence).
+# When present we use --frozen for reproducibility; otherwise we let uv resolve.
+COPY pyproject.toml README.md ./
 COPY src/ ./src/
-RUN uv sync --frozen --no-dev || uv sync --no-dev
+COPY uv.lock* ./
+RUN if [ -f uv.lock ]; then \
+        uv sync --frozen --no-dev; \
+    else \
+        uv sync --no-dev; \
+    fi
 
+# Ruby deps. Same pattern: Gemfile.lock optional. We avoid bundler "deployment"
+# mode unless a lockfile is present, since deployment requires Gemfile.lock.
 COPY lib/ ./lib/
 COPY vendor/ ./vendor/
-COPY Gemfile Gemfile.lock* ./
+COPY Gemfile ./
+COPY Gemfile.lock* ./
 RUN gem install bundler --no-document \
-    && bundle config set --local deployment 'true' \
     && bundle config set --local without 'development test' \
-    && bundle install || bundle install --no-deployment
+    && if [ -f Gemfile.lock ]; then \
+           bundle config set --local deployment 'true'; \
+       fi \
+    && bundle install
 
 RUN groupadd --system --gid 1000 jfin2etv \
     && useradd --system --uid 1000 --gid jfin2etv --home-dir /app --shell /usr/sbin/nologin jfin2etv \

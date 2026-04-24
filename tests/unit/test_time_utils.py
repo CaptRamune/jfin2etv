@@ -15,7 +15,6 @@ from jfin2etv.time_utils import (
     load_tz,
 )
 
-
 NY = load_tz("America/New_York")
 
 

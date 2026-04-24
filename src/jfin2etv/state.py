@@ -75,7 +75,7 @@ class StateStore:
             self._conn.close()
             self._conn = None
 
-    def __enter__(self) -> "StateStore":
+    def __enter__(self) -> StateStore:
         self.open()
         return self
 
@@ -313,9 +313,9 @@ def pick_weighted_random(
 
 
 __all__ = [
-    "CollectionState",
     "RECENT_PLAYS_TTL_DAYS",
     "SCHEMA_VERSION",
+    "CollectionState",
     "StateStore",
     "expression_sha",
     "pick_chronological",

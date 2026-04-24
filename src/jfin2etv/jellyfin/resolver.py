@@ -113,7 +113,7 @@ class QueryResolver:
             return out
         if isinstance(expr, Not):
             if bounding is None:
-                raise QueryParseErrorFromResolver(
+                raise ResolverQueryParseError(
                     "unbounded NOT reached runtime (bug: validate earlier)"
                 )
             inner = await self._eval(expr.expr, bounding)
@@ -219,7 +219,7 @@ class QueryResolverInternalError(RuntimeError):
     pass
 
 
-class QueryParseErrorFromResolver(QueryResolverError):
+class ResolverQueryParseError(QueryResolverError):
     pass
 
 

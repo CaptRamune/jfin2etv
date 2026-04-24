@@ -19,7 +19,7 @@ class FakeJellyfinClient:
     libraries: dict[str, str] = field(default_factory=dict)
     persons: dict[str, str] = field(default_factory=dict)
 
-    async def __aenter__(self) -> "FakeJellyfinClient":
+    async def __aenter__(self) -> FakeJellyfinClient:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
