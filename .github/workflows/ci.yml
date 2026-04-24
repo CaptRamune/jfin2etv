@@ -17,11 +17,17 @@ jobs:
   python:
     name: Python
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: jfin2etv-main
     steps:
       - uses: actions/checkout@v4
+      # region agent log: confirm runner repo layout (H1)
+      - name: Debug — runner layout
+        run: |
+          echo "pwd=$(pwd)"
+          echo "--- top-level ---"
+          ls -la
+          echo "--- looking for project markers ---"
+          ls -la pyproject.toml Gemfile Dockerfile src lib 2>&1 || true
+      # endregion
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -33,7 +39,6 @@ jobs:
         with:
           ruby-version: "3.1"
           bundler-cache: true
-          working-directory: jfin2etv-main
       - name: Sync dependencies
         run: uv sync --frozen --extra dev || uv sync --extra dev
       - name: Ruff
@@ -47,16 +52,18 @@ jobs:
   ruby:
     name: Ruby
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: jfin2etv-main
     steps:
       - uses: actions/checkout@v4
+      # region agent log: confirm runner repo layout (H1)
+      - name: Debug — runner layout
+        run: |
+          echo "pwd=$(pwd)"
+          ls -la Gemfile spec lib 2>&1 || true
+      # endregion
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.1"
           bundler-cache: true
-          working-directory: jfin2etv-main
       - name: RSpec
         run: bundle exec rspec
       - name: RuboCop
@@ -67,9 +74,6 @@ jobs:
     name: End-to-end
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[e2e]')
-    defaults:
-      run:
-        working-directory: jfin2etv-main
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -78,7 +82,6 @@ jobs:
         with:
           ruby-version: "3.1"
           bundler-cache: true
-          working-directory: jfin2etv-main
       - run: uv sync --frozen --extra dev || uv sync --extra dev
       - name: Run e2e
         env:
@@ -110,7 +113,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/captramune/jfin2etv:latest
+          images: ghcr.io/captramune/jfin2etv
           tags: |
             type=sha
             type=ref,event=branch
@@ -120,13 +123,13 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: jfin2etv-main
-          file: jfin2etv-main/Dockerfile
+          context: .
+          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
-            type=gha,scope=jfin2etv-${{ hashFiles('jfin2etv-main/pyproject.toml','jfin2etv-main/uv.lock','jfin2etv-main/Gemfile','jfin2etv-main/Gemfile.lock') }}
+            type=gha,scope=jfin2etv-${{ hashFiles('pyproject.toml','uv.lock','Gemfile','Gemfile.lock') }}
           cache-to: |
-            type=gha,mode=max,scope=jfin2etv-${{ hashFiles('jfin2etv-main/pyproject.toml','jfin2etv-main/uv.lock','jfin2etv-main/Gemfile','jfin2etv-main/Gemfile.lock') }}
+            type=gha,mode=max,scope=jfin2etv-${{ hashFiles('pyproject.toml','uv.lock','Gemfile','Gemfile.lock') }}
