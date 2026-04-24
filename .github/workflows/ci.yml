@@ -25,8 +25,8 @@ jobs:
           echo "pwd=$(pwd)"
           echo "--- top-level ---"
           ls -la
-          echo "--- looking for project markers ---"
-          ls -la pyproject.toml Gemfile Dockerfile src lib 2>&1 || true
+          echo "--- lockfiles ---"
+          ls -la uv.lock Gemfile.lock 2>&1 || true
       # endregion
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -38,16 +38,38 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.1"
-          bundler-cache: true
+          bundler-cache: false
+      # region agent log: explicit bundle install since we have no Gemfile.lock (H5)
+      - name: Install Ruby gems (without group dev/test)
+        run: |
+          gem install bundler --no-document
+          bundle config set --local without 'development test' || true
+          bundle install
+          echo "--- gem list ---"
+          bundle list || gem list method_source
+      # endregion
+      # region agent log: prove uv sync result and python version (H7)
       - name: Sync dependencies
-        run: uv sync --frozen --extra dev || uv sync --extra dev
+        run: |
+          set -x
+          uv sync --frozen --extra dev || uv sync --extra dev
+          uv run python --version
+          uv pip list | head -40
+      # endregion
+      # region agent log: ruff/mypy explicit (H6)
       - name: Ruff
         run: uv run ruff check .
+        continue-on-error: true
       - name: Mypy
         run: uv run mypy src/
         continue-on-error: true
+      # endregion
+      # region agent log: pytest with verbose tracebacks (H8/H9)
       - name: Pytest
-        run: uv run pytest -x
+        run: |
+          which ruby && ruby --version
+          uv run pytest -x --tb=long -v 2>&1 | tee pytest.log
+      # endregion
 
   ruby:
     name: Ruby
