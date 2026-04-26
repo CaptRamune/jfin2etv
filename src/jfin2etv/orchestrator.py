@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -194,7 +195,26 @@ class Orchestrator:
             log_event(logger, "channel.plan_error", "plan failed", channel=channel_number)
             return cr
 
-        state_path = Path(self.config.state_dir) / f"channel-{channel_number}.sqlite"
+        state_dir = Path(self.config.state_dir)
+        try:
+            state_dir.mkdir(parents=True, exist_ok=True)
+            (state_dir / ".write_probe").touch()
+            (state_dir / ".write_probe").unlink()
+        except OSError as e:
+            cr.errors.append(
+                f"state_dir {state_dir} is not writable by uid "
+                f"{os.getuid()} ({type(e).__name__}: {e}); "
+                "chown the host bind-mount source to 1000:1000"
+            )
+            log_event(
+                logger,
+                "channel.state_dir_unwritable",
+                "state_dir unwritable",
+                channel=channel_number,
+                file=str(state_dir),
+            )
+            return cr
+        state_path = state_dir / f"channel-{channel_number}.sqlite"
 
         # Resolve Jellyfin pools once per channel.
         try:
@@ -207,7 +227,15 @@ class Orchestrator:
         programmes: list = []
 
         playout_dir = Path(self.config.ersatztv.config_dir) / "channels" / channel_number / "playout"
-        playout_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            playout_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            cr.errors.append(
+                f"playout_dir {playout_dir} is not writable by uid "
+                f"{os.getuid()} ({type(e).__name__}: {e}); "
+                "chown the host bind-mount source to 1000:1000"
+            )
+            return cr
 
         with StateStore(state_path) as state:
             state.start_run(run_id, notes=f"channel {channel_number}")

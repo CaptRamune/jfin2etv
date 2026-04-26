@@ -17,6 +17,8 @@ The design contract is [`DESIGN.md`](DESIGN.md). This README is the quickstart.
 
 > You'll need Docker Engine with the `compose` plugin on the host. These instructions assume you already have [Dockge](https://dockge.kuma.pet/) and [Traefik](https://doc.traefik.io/traefik/) running.
 
+> **Two prerequisite images:** the compose stack pulls both `jfin2etv` and `ersatztv-next` from your GHCR. See [`PUBLISHING.md`](PUBLISHING.md) to publish jfin2etv and [`PUBLISHING_ETV.md`](PUBLISHING_ETV.md) to publish ErsatzTV-Next (the upstream project doesn't currently distribute one). Once both are published you can come back here.
+
 1. **Create the shared network** once on the host:
 
    ```bash
@@ -33,7 +35,9 @@ The design contract is [`DESIGN.md`](DESIGN.md). This README is the quickstart.
    JELLYFIN_API_KEY=<the key you just made>
    ```
 
-   Also swap `ghcr.io/OWNER/jfin2etv:latest` for your published image tag.
+   Also swap both image tags for the ones you published:
+   - `ghcr.io/ersatztv/next:latest` → `ghcr.io/<YOUR_USERNAME>/ersatztv-next:latest`
+   - `ghcr.io/OWNER/jfin2etv:latest` → `ghcr.io/<YOUR_USERNAME>/jfin2etv:latest`
 
 5. **Drop channel scripts** into the stack's bind-mounted directory:
 
@@ -44,6 +48,8 @@ The design contract is [`DESIGN.md`](DESIGN.md). This README is the quickstart.
    ```
 
    The three bundled examples (`examples/scripts/{01,02,03}`) correspond to DESIGN.md §18 (Classic Rock Videos, Toonz, Springfield).
+
+   > Writing your own channel scripts? Start with the [scripting guide](docs/scripting/README.md).
 
 6. **Drop the config** (optional — all values have defaults):
 
@@ -57,7 +63,13 @@ The design contract is [`DESIGN.md`](DESIGN.md). This README is the quickstart.
    docker compose exec jfin2etv jfin2etv once
    ```
 
-   ErsatzTV-Next picks up the emitted playout JSON and the M3U is available at `http://tv.example.com/iptv`. The XMLTV guide is at `http://tv.example.com/epg/epg.xml`.
+   ErsatzTV-Next picks up the emitted playout JSON. The endpoints it exposes (via Traefik) are:
+
+   | URL | Purpose |
+   |---|---|
+   | `https://tv.example.com/channels.m3u` | Master M3U lineup — point your IPTV client (Tivimate, Channels DVR, Plex Live TV, etc.) at this URL. |
+   | `https://tv.example.com/channel/<N>.m3u8` | Per-channel HLS playlist — open in VLC, mpv, or a browser HLS player for an ad-hoc preview. |
+   | `https://tv.example.com/epg/epg.xml` | XMLTV guide data, served by jfin2etv's static file server. |
 
 ## Local development
 
@@ -135,6 +147,9 @@ jfin2etv-main/
 ## Troubleshooting
 
 - **`jfin2etv once` fails with `JELLYFIN_API_KEY not set`** — the env var is required; set it in the stack's `.env`.
+- **`state_dir … is not writable by uid 1000`** or **`sqlite3.OperationalError: unable to open database file`** — the bind-mount source on the host is owned by `root`, but the container runs as uid 1000. Fix with one chown on the host (run from your stack directory): `sudo chown -R 1000:1000 ./jfin2etv ./ersatztv` then `docker compose restart jfin2etv`. Pre-creating the host directories with the right ownership before the first deploy avoids this entirely.
+- **`could not reach Jellyfin at <url>`** — `JELLYFIN_URL` must be the container-to-container address (`http://jellyfin:8096`), not the public URL from your browser. Both containers must be on the same external `media_proxy` Docker network.
+- **`/channels.m3u` or `/channel/<N>.m3u8` returns 404 with `server: Kestrel`** — Traefik isn't routing to ErsatzTV-Next at all and the request is hitting some other backend on the host. Two label foot-guns to check in `stacks/jfin2etv/compose.yml`: `Host(\`...\`)` must contain a hostname only (no `https://` prefix), and `certresolver=` must match whatever name your Traefik install uses (commonly `letsencrypt` rather than `le`). Self-signed cert errors over HTTPS are the same diagnosis.
 - **ErsatzTV-Next sees no channels** — check that `/ersatztv-config/channels/<N>/playout/` contains a `*.json` file after the run and that `/ersatztv-config/lineup.json` lists it. Re-run with `jfin2etv once --force`.
 - **XMLTV is empty for a channel** — run `jfin2etv resolve --channel N` to confirm collections are matching items.
 - **`jfin2etv status`** shows the last successful run per channel; use it to confirm the cron job is actually running.

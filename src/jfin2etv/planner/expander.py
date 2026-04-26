@@ -556,13 +556,21 @@ def _expand_block(
     if fill_step and aligned_end > cursor:
         pool_names = fill_step.with_ or []
         remaining_ns = diff_nanos(aligned_end, cursor)
-        for pn in pool_names:
+        # Only the last non-empty pool is allowed to take the sub-item trim
+        # that lands exactly on the target end (§8.4 ordered-list form).
+        # Earlier pools drain in whole units and hand any residual to the next.
+        last_idx = len(pool_names) - 1
+        for i, pn in enumerate(pool_names):
             if remaining_ns <= 0:
                 break
             items = _filler_drain_pool(pools, pn, 20)
             if not items:
                 continue
-            placed = fill_budget_looped(items[0], remaining_ns) if len(items) == 1 else fill_budget_draining(items, remaining_ns)
+            is_last = i == last_idx
+            if len(items) == 1:
+                placed = fill_budget_looped(items[0], remaining_ns, allow_trim_last=is_last)
+            else:
+                placed = fill_budget_draining(items, remaining_ns, allow_trim_last=is_last)
             for it in placed:
                 out.append(_place(it, cursor, block.at, collection, layout_name, tz, is_filler=True, filler_kind=pn))
                 cursor = out[-1].finish

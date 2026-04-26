@@ -1,6 +1,15 @@
 # Dockge stack 2 — ErsatzTV-Next + jfin2etv (DESIGN.md §3.2).
 # Set JELLYFIN_API_KEY in the Dockge stack's .env before deploying.
 # Prereq on host: `docker network create media_proxy`
+#
+# Two Traefik label foot-guns to avoid:
+#   1. Host(`...`) takes a HOSTNAME ONLY, never a URL with scheme.
+#      Wrong:  Host(`https://tv.example.com`)
+#      Right:  Host(`tv.example.com`)
+#   2. `certresolver=` must match the name configured in your Traefik install.
+#      Common names: `letsencrypt`, `myresolver`, `default`. The example here
+#      uses `le` — change it to whatever your Traefik knows about, or Traefik
+#      will silently fall back to its self-signed default cert.
 services:
   ersatztv:
     image: ghcr.io/ersatztv/next:latest
@@ -14,14 +23,20 @@ services:
       - traefik.enable=true
       - traefik.docker.network=media_proxy
       - traefik.http.routers.etv.rule=Host(`tv.example.com`)
+      - traefik.http.routers.etv.tls=true
       - traefik.http.routers.etv.tls.certresolver=le
+      - traefik.http.routers.etv.entrypoints=websecure
       - traefik.http.services.etv.loadbalancer.server.port=8409
 
   jfin2etv:
     image: ghcr.io/captramune/jfin2etv:latest
     restart: unless-stopped
     environment:
+      # Container-to-container address; do NOT paste the public URL from your
+      # browser tab here. `jellyfin` is the Docker DNS name of the Jellyfin
+      # container on the shared media_proxy network; 8096 is its internal port.
       JELLYFIN_URL: http://jellyfin:8096
+      # SECRETS go in .env, never inline. Dockge has a .env editor in the UI.
       JELLYFIN_API_KEY: ${JELLYFIN_API_KEY}
       TZ: America/New_York
     volumes:
@@ -37,7 +52,9 @@ services:
       - traefik.enable=true
       - traefik.docker.network=media_proxy
       - traefik.http.routers.epg.rule=Host(`tv.example.com`) && PathPrefix(`/epg`)
+      - traefik.http.routers.epg.tls=true
       - traefik.http.routers.epg.tls.certresolver=le
+      - traefik.http.routers.epg.entrypoints=websecure
       - traefik.http.services.epg.loadbalancer.server.port=8080
 
 networks:

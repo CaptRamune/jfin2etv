@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -13,6 +14,23 @@ logger = get_logger(__name__)
 
 class JellyfinError(Exception):
     """Raised for non-2xx Jellyfin responses or connection errors."""
+
+
+def _normalize_jellyfin_url(raw: str) -> str:
+    """Strip fragment and any extraneous path/query the user might have copied
+    from a browser tab. Jellyfin's API lives at the server root, so a URL like
+    ``https://host/web/#/home`` (the web UI URL) becomes ``https://host``.
+    """
+    parts = urlsplit(raw.strip())
+    if not parts.scheme or not parts.netloc:
+        return raw.rstrip("/")
+    cleaned = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+    if parts.path not in ("", "/") or parts.fragment or parts.query:
+        logger.warning(
+            "stripped path/fragment/query from JELLYFIN_URL; using API base instead",
+            extra={"event": "jellyfin.url_normalized", "file": cleaned},
+        )
+    return cleaned
 
 
 class JellyfinClient:
@@ -30,7 +48,7 @@ class JellyfinClient:
         timeout_s: float = 30.0,
         user_agent: str = "jfin2etv/0.1",
     ) -> None:
-        self._base = base_url.rstrip("/")
+        self._base = _normalize_jellyfin_url(base_url)
         self._api_key = api_key
         self._timeout = timeout_s
         self._ua = user_agent
@@ -75,10 +93,15 @@ class JellyfinClient:
         params.setdefault("Fields", "Path,RunTimeTicks,ProviderIds,Genres,Tags,PremiereDate,ProductionYear,ChapterInfo,Artists,SeriesName,SeriesId,ParentId,ParentIndexNumber,IndexNumber,Overview,CommunityRating,Name,Type,Tagline")
 
         while True:
-            r = await self.client.get(
-                "/Items",
-                params={**params, "StartIndex": start, "Limit": page_size},
-            )
+            try:
+                r = await self.client.get(
+                    "/Items",
+                    params={**params, "StartIndex": start, "Limit": page_size},
+                )
+            except httpx.HTTPError as e:
+                raise JellyfinError(
+                    f"could not reach Jellyfin at {self._base}: {type(e).__name__}: {e}"
+                ) from e
             if r.status_code != 200:
                 raise JellyfinError(f"GET /Items -> {r.status_code}: {r.text[:200]}")
             body = r.json()

@@ -555,7 +555,7 @@ Broadcast television doesn't just run a show until it ends — it runs the show 
 
 1. **`align:` on the block (or on the schedule's `default_block`)** — declares the target clock boundary. `align: 30.minutes` means "this block's end must land on the next `:00` or `:30` mark after the main item finishes, unless the next anchored block comes first." `align: 1.hour` snaps to the next top-of-the-hour. The alignment is anchored to the top of the current hour, not to the block's `at:`, so `align: 30.minutes` always means the `:00`/`:30` grid regardless of when the block started.
 2. **`mid_roll count: :auto` (with optional `per_break_target:`)** — distributes a computed total commercial budget across all chapter (or minute-mark) breaks. The budget is `align_target - main_duration - pre_roll_duration - post_roll_duration - num_breaks × (to_mid + from_mid)`. jfin2etv packs each break to at least `per_break_target` seconds (default 120), balancing across breaks so no single one is grotesquely long.
-3. **`fill with: [:mid_roll, :fallback]`** — the layout's tail-padding step can draw from multiple pools in priority order. jfin2etv tries to absorb leftover slack with the first pool; only when the remaining gap is smaller than the shortest available item in the first pool does it fall through to the next. Because `:fallback`'s final item is always trimmed to land exactly on the target, this guarantees a clean boundary without drift.
+3. **`fill with: [:mid_roll, :fallback]`** — the layout's tail-padding step can draw from multiple pools in priority order. jfin2etv scans the first pool in `mode:` order, emitting each item whole if it fits and skipping items that would overshoot so a shorter item later in the same pool can still play. Once every item has been considered, the remaining gap (if any) is handed to the next pool — never trimmed. Only the **last** pool in the list is allowed to take the final sub-item trim, guaranteeing a clean boundary without drift while leaving every earlier pool's items intact.
 
 Together these produce real-TV behaviour: a 22-minute sitcom in a 30-minute block gets ~8 minutes of commercials distributed across chapter breaks, with the `:fallback` pool essentially never touched.
 
@@ -967,8 +967,8 @@ stateDiagram-v2
 - All durations are in **nanoseconds** internally (matches ErsatzTV-Next's ISO 8601 timestamps, which include nanoseconds).
 - Jellyfin `RunTimeTicks` is converted 1:1 (1 tick = 100 ns).
 - Items whose duration is unknown (no Jellyfin runtime, no ffprobe result) are **rejected** with a warning; the generator picks the next candidate.
-- The `fill with: ...` step trims the final chosen filler to land exactly on the target end (the next anchor, or the block's alignment target if set), using ErsatzTV-Next's `in_point_ms` / `out_point_ms` fields. No math-errors-accumulate-over-time drift.
-- When `fill with:` is a list like `[:mid_roll, :fallback]`, the generator drains the first pool greedily while the remaining gap is ≥ the shortest item in that pool, then falls through to the next pool, which performs the final trim.
+- The `fill with: ...` step trims the final chosen filler — and only the final filler — to land exactly on the target end (the next anchor, or the block's alignment target if set), using ErsatzTV-Next's `in_point_ms` / `out_point_ms` fields. No math-errors-accumulate-over-time drift.
+- When `fill with:` is a list like `[:mid_roll, :fallback]`, the generator scans the first pool in `mode:` order, emitting each item that fits and skipping any that would overshoot so a shorter item later in the same pool can still play. Once every item has been considered, the residual is handed to the next pool intact — earlier pools never trim. Only the last pool in the list takes the sub-item trim.
 
 ### 7.4 Count limits
 
@@ -1036,10 +1036,10 @@ The layout's `fill with:` step is what turns leftover gap time into actual emitt
 #### Ordered-list form (`fill with: [:mid_roll, :fallback]`)
 
 - jfin2etv walks the pool list in order. For each pool:
-  1. While the remaining gap is ≥ the shortest currently-available item in this pool, draw one item and emit it.
-  2. When the remaining gap is smaller than every item in this pool, move to the next pool in the list.
-- The **last pool in the list** is responsible for the final sub-item trim: its last-chosen item is trimmed with `out_point_ms` to land exactly on the target end.
-- Pool exhaustion (empty or fully memory-excluded) moves to the next pool without raising.
+  1. Scan the pool in `mode:` order. Each item is emitted whole if it fits in the remaining gap; an item that would overshoot is **skipped**, and the scan continues looking for shorter items further along the pool. This keeps a single long item from prematurely punting a big chunk of the gap to the next pool.
+  2. When every item in the pool has been considered (or the remaining gap reaches zero), move to the next pool in the list — without trimming. The residual gap, if any, is handed forward intact.
+- Only the **last pool in the list** is allowed to take the final sub-item trim: the first oversized item it encountered is trimmed with `out_point_ms` to consume the residual exactly, landing on the target end. Earlier pools never trim, so prior-pool items always play in full.
+- Pool exhaustion (empty, fully memory-excluded, or no remaining item smaller than the gap) moves to the next pool without raising.
 - If every pool is exhausted, the same lavfi safety net as the single-pool form kicks in.
 
 #### Target end
